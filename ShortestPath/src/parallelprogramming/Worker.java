@@ -17,15 +17,17 @@ public class Worker implements Runnable {
 		this.L = L;
 	}
 
-	public Worker() {
-	}
-
 	@Override
 	public void run() {
-		int vertex = workpool.getWork();
+		int vertex = 0;
+		try {
+			vertex = workpool.getWork();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		int newdist = 0;
 		while (vertex != -1) {
-			// System.out.println("outside vertex is " + vertex);
 			inflag[vertex] = false;// vertex removed from workpool
 			for (int v = 0; v < Application.n; v++) {
 				if (weight[vertex][v] < Application.infinity) {// See if this is
@@ -33,28 +35,32 @@ public class Worker implements Runnable {
 																// to v
 					newdist = mindist[vertex] + weight[vertex][v];
 
-					// System.out.println("new distance is " + newdist);
+				//	if ((newdist < mindist[v])) {
+						L[v].lock();
+						if (newdist < mindist[v]) {
+							mindist[v] = newdist;
+							L[v].unlock();
+							if (!inflag[v]) {// if v not in work pool
 
-					if (newdist < mindist[v]) {
-						mindist[v] = newdist;
-						if (!inflag[v]) {// if v not in work pool
-							
-							inflag[v] = true;
-							workpool.putWork(v);
-						}
-					}
-
+								inflag[v] = true;
+								workpool.putWork(v);
+							}
+						} else
+							L[v].unlock();
+					//}
 				}
 			}
-			
-			if (workpool.workpool.isEmpty()) {
-				workpool.putWork(-1);
+
+
+			try {
+				vertex = workpool.getWork();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
 			}
-			vertex = workpool.getWork();
 		}
 		System.out.println("exiting from worker");
 		// System.out.println("printing mindist");
-		
+
 	}
 
 }
