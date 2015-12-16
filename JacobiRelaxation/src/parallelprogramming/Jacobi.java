@@ -1,20 +1,16 @@
 package parallelprogramming;
 
-import java.util.concurrent.BrokenBarrierException;
-import java.util.concurrent.CyclicBarrier;
+import java.util.stream.IntStream;
 
-public class Jacobi implements Runnable {
+public class Jacobi {
 
-	int start, end;
 	float A[][];
 	float B[][];
 	boolean localDone;
 
-	static CyclicBarrier barrier = new CyclicBarrier(Application.numofprocesor);
-
 	public Jacobi(int start, int end, float[][] A, float[][] B) {
-		this.start = start;
-		this.end = end;
+		// this.start = start;
+		// this.end = end;
 		this.A = A;
 		this.B = B;
 	}
@@ -24,63 +20,9 @@ public class Jacobi implements Runnable {
 		this.B = B;
 	}
 
-	/*
-	 * void computeGlobaldone(boolean done) { Application.globalDone =
-	 * this.localDone && Application.globalDone;
-	 * 
-	 * }
-	 */
-
-	@Override
-	public void run() {
-		int i, j;
-		float maxchange, change;
-		do {
-			maxchange = 0;
-			localDone = true;
-			Application.globalDone=true;
-			for (i = start; i < end; i++) {
-				for (j = 1; j < Application.n; j++) {
-					B[i][j] = (A[i - 1][j] + A[i + 1][j] + A[i][j - 1] + A[i][j + 1]) / 4;
-					change = Math.abs(B[i][j] - A[i][j]);
-					if (change > maxchange) {
-						maxchange = change;
-						if (maxchange > Application.tolerance) {
-							localDone = false;
-						System.out.println("here");
-						}
-						System.out.println("localdDone " + localDone);
-					}
-				}
-
-			}
-
-			try {
-				barrier.await();
-
-				for (i = 1; i < Application.n; i++) {
-					for (j = 1; j < Application.n; j++) {
-
-						A[i][j] = B[i][j];
-					}
-				}
-				Application.globalDone = this.localDone && Application.globalDone;
-				barrier.await();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			} catch (BrokenBarrierException e) {
-				e.printStackTrace();
-			}
-			//System.out.println("here");
-
-		} while (Application.globalDone);
-
-	}
-
 	public void sequentialrun() {
 		int i, j;
 		float maxchange, change;
-
 		do {
 			maxchange = 0;
 			for (i = 1; i < Application.n; i++) {
@@ -99,8 +41,32 @@ public class Jacobi implements Runnable {
 					A[i][j] = B[i][j];
 				}
 			}
+
 		} while (maxchange > Application.tolerance);
 
 	}
 
+	public void streamRun() {
+		do {
+			Application.globalDone = true;
+
+			IntStream.range(1, Application.n).parallel().forEach(i -> {
+				for (int j = 1; j < Application.n; j++) {
+					B[i][j] = (A[i - 1][j] + A[i + 1][j] + A[i][j - 1] + A[i][j + 1]) / 4;
+
+				}
+			});
+			IntStream.range(1, Application.n).parallel().forEach(i -> {
+				float change;
+				for (int j = 1; j < Application.n; j++) {
+					change = Math.abs(B[i][j] - A[i][j]);
+					if (change > Application.tolerance) {
+						Application.globalDone = false;
+					}
+					A[i][j] = B[i][j];
+				}
+			});
+		} while (!Application.globalDone);
+
+	}
 }
